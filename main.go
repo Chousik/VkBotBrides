@@ -20,9 +20,9 @@ type Player struct {
 }
 type Game struct {
 	Round      int
-	Game_Stage int
+	GameStage  int
 	KIK        int
-	Propusk    int
+	Propulsion int
 	WantGroom  []int
 	Play       []int
 	Brides     []Player
@@ -33,7 +33,7 @@ type Game struct {
 func NewGame() *Game {
 	g := &Game{}
 	g.KIK = 1
-	g.Propusk = 1
+	g.Propulsion = 1
 	return g
 }
 
@@ -66,10 +66,7 @@ func (g *Game) DeleteBrides(id int, number int) bool {
 func (g *Game) GetIdNumberBrides(id int, number int) int {
 	if id == 0 {
 		for _, p := range g.Brides {
-			fmt.Println(number)
-			fmt.Println(p.number)
 			if p.number == number {
-				fmt.Println(p.id)
 				return p.id
 			}
 		}
@@ -124,7 +121,7 @@ func (g *Game) DeleteWantGroom(id int) bool {
 	return false
 }
 func (g *Game) StartGame() bool {
-	if len(g.WantGroom) == 0 || len(g.Play) == 0 {
+	if len(g.WantGroom) == 0 || len(g.Play) < 3 {
 		return false
 	}
 	o := rand.Intn(len(g.WantGroom))
@@ -139,7 +136,7 @@ func (g *Game) StartGame() bool {
 		g.AddBrides(BridesID, i)
 	}
 	g.Round = 1
-	g.Game_Stage = 1
+	g.GameStage = 1
 	return true
 }
 func (g *Game) HePlay(id int) bool {
@@ -152,46 +149,36 @@ func (g *Game) HePlay(id int) bool {
 	return false
 }
 func (g *Game) AddAnswer(id int, answer string) bool {
-	fmt.Println(answer)
 	for i, p := range g.Brides {
-		fmt.Println(p)
 		if p.id == id {
 			g.Brides[i].ans = answer
-			fmt.Println(p.ans)
 			return true
 		}
 	}
 	return false
 }
-func (g *Game) ReturnAnwer() string {
-	answers := "Ответы невест!:\n"
-	for _, p := range g.Brides {
-		answers += strconv.Itoa(p.id) + ":" + p.ans
-	}
-	return answers
-}
 func (g *Game) AddQuest(q []string) {
 	g.Question = strings.Join(q, " ")
 }
 func (g *Game) EndQuest(vk *api.VK, yes bool) {
-	qust := ""
+	quest := "💍ВОПРОС ЖЕНИХА №" + strconv.Itoa(g.Round) + ": " + g.Question
 	if yes == false {
-		qust += "Время закончилось, ответы прекрасных невест:\n"
+		quest += "Время закончилось. 💍ОТВЕТЫ НЕВЕСТ💍:\n"
 	} else {
-		qust += "Все невесты ответили!\n"
+		quest += "💍ОТВЕТЫ НЕВЕСТ💍:\n"
 	}
 	for i, p := range g.Brides {
 		if p.ans != "" {
-			qust += strconv.Itoa(p.number) + ": " + p.ans + "\n"
+			quest += "🥀" + strconv.Itoa(p.number) + "🥀: " + p.ans + "\n"
 			g.Brides[i].ans = ""
 		} else {
-			qust += "Невеста" + strconv.Itoa(p.number) + "проспала! Ею была @id" + strconv.Itoa(p.id) + "\n"
+			quest += "Невеста 🥀" + strconv.Itoa(p.number) + "🥀 проспала! Ею была [id" + strconv.Itoa(p.id) + "|" + GiveName(vk, p.id) + "]" + "\n"
 			g.Brides = append(g.Brides[:i], g.Brides[i+1:]...)
 		}
-		g.Game_Stage = 4
+		g.GameStage = 4
 	}
-	SendMessege(vk, qust, ChatID)
-	SendMessege(vk, qust, g.Groom)
+	SendMessege(vk, quest, ChatID)
+	SendMessege(vk, quest, g.Groom)
 	SendMessege(vk, "Для того что бы кикнуть нвесту используйте !кик <номер>", g.Groom)
 }
 func (g *Game) KikOne(vk *api.VK, mess []string) bool {
@@ -206,15 +193,30 @@ func (g *Game) KikOne(vk *api.VK, mess []string) bool {
 	if i == false {
 		return false
 	}
-	SendMessege(vk, "К сожаление нас покидает невеста номер "+numb+". Ею была прекрасная @id"+strconv.Itoa(id)+"\n", ChatID)
-	SendMessege(vk, "Вы кикнули невесту номер "+numb+". Ею была прекрасная @id"+strconv.Itoa(id)+"\n", g.Groom)
+	SendMessege(vk, "💔К сожалению, нас покидает невеста под номером  "+numb+". Ею была прекрасная [id"+strconv.Itoa(id)+"|"+GiveName(vk, id)+"]"+"\n", ChatID)
+	SendMessege(vk, "Вы кикнули невесту номер "+numb+". Ею была прекрасная [id"+strconv.Itoa(id)+"|"+GiveName(vk, id)+"]"+"\n", g.Groom)
 	if len(mess) >= 1 {
-		komment := strings.Join(mess, " ")
-		SendMessege(vk, "Комментарий жениха: "+komment, ChatID)
-		SendMessege(vk, "Комментарий жениха: "+komment, g.Groom)
+		comment := strings.Join(mess, " ")
+		SendMessege(vk, "✨Комментарий жениха: "+comment, ChatID)
+		SendMessege(vk, "✨Комментарий жениха: "+comment, g.Groom)
 	}
 	return true
 
+}
+func (g *Game) Propus(vk *api.VK, mes []string) bool {
+	if g.Propulsion == 1 {
+		g.Propulsion = 0
+		SendMessege(vk, "Жених решил оставить всех невест!", ChatID)
+		SendMessege(vk, "Жених решил оставить всех невест!", g.Groom)
+		if len(mes) >= 1 {
+			comment := strings.Join(mes, " ")
+			SendMessege(vk, "✨Комментарий жениха: "+comment, ChatID)
+			SendMessege(vk, "✨Комментарий жениха: "+comment, g.Groom)
+		}
+		return true
+	} else {
+		return false
+	}
 }
 func (g *Game) ConstPlayer() int {
 	ans := 0
@@ -245,7 +247,7 @@ func (g *Game) AllEND() bool {
 }
 func (g *Game) NewRound(vk *api.VK) {
 	g.Round += 1
-	g.Game_Stage = 2
+	g.GameStage = 2
 	SendMessege(vk, "Раунд "+strconv.Itoa(g.Round)+" начинается!", ChatID)
 	SendMessege(vk, "Раунд "+strconv.Itoa(g.Round)+" начинается!\n Для вопроса используйте !вопрос", g.Groom)
 	for _, p := range g.Brides {
@@ -259,14 +261,14 @@ func (g *Game) GetQuest(vk *api.VK, obj events.MessageNewObject) {
 		ans := mes[1:]
 		if len(ans) > 0 {
 			g.AddQuest(ans)
-			SendMessege(vk, "Вопрос задание! Ожидайте ответа невест!", g.Groom)
-			SendMessege(vk, "Вопрос жениха №"+strconv.Itoa(g.Round)+"\n"+g.Question, ChatID)
+			SendMessege(vk, "Вопрос задан! Ожидайте ответа невест!", g.Groom)
+			SendMessege(vk, "💍ВОПРОС ЖЕНИХА №"+strconv.Itoa(g.Round)+"\n"+g.Question, ChatID)
 			for _, p := range g.Brides {
-				SendMessege(vk, "Вопрос жениха №"+strconv.Itoa(g.Round)+"\n"+g.Question, p.id)
+				SendMessege(vk, "💍ВОПРОС ЖЕНИХА №"+strconv.Itoa(g.Round)+"\n"+g.Question, p.id)
 				SendMessege(vk, "Для ответа на вопрос используйте !ответ <ответ> ", p.id)
 
 			}
-			g.Game_Stage = 3
+			g.GameStage = 3
 		} else {
 			SendMessege(vk, "Что бы задать вопрос испольуйте \n !вопрос <вопрос>", g.Groom)
 		}
@@ -278,42 +280,43 @@ func (g *Game) GetQuest(vk *api.VK, obj events.MessageNewObject) {
 func (g *Game) ENDGAME(vk *api.VK) *Game {
 	bride := g.Brides[0].id
 	groom := g.Groom
-	SendMessege(vk, "Поздравляем наших молодоженов! Прекрасную @id"+strconv.Itoa(bride)+" и прекрасного @id"+strconv.Itoa(groom), ChatID)
+	SendMessege(vk, "Игра заканчивается!\n 👑Мы поздравляем молодожёнов!\n Жених прекрасный(ая): [id"+strconv.Itoa(groom)+"|"+GiveName(vk, groom)+"\n Невеста очаровательный(ая): [id"+strconv.Itoa(bride)+"|"+GiveName(vk, bride)+"]", ChatID)
 	SendMessege(vk, "Игра окончена! Что бы начать новую напишите !невесты", ChatID)
 	g = NewGame()
 	return g
 }
 func main() {
 	g := NewGame()
+	for {
+		Vk(g)
+	}
+}
+func Vk(g *Game) {
 	token := "vk1.a.bCp6Il1J3O9wePPDU9ElvErT85_z7SiQW-OPF45Ui5zdtsJq2r8HsRvywZ03F4x1RBef7yGeovc34H6iKzWv5ium29LVbJkefFtR7em7Qt0VrUbjum6PAIVoXTp4KNTf6jO-IKTGaZkVduFzcl11SZNFjiwylQrJhyOYX4aqhLf-bAswUkkXn5LBAe02kd8R" // use os.Getenv("TOKEN")
 	vk := api.NewVK(token)
-	GameTrue := false
 	// get information about the group
 	group, err := vk.GroupsGetByID(nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	// Initializing Long Poll
 	lp, err := longpoll.NewLongPoll(vk, group[0].ID)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	// New message event
 	lp.MessageNew(func(_ context.Context, obj events.MessageNewObject) {
-		log.Printf("%d: %s", obj.Message.PeerID, obj.Message.Text)
-		if GameTrue {
-			g = NewGame()
-		} else {
-			g = Games(g, vk, obj)
-		}
+		g = Games(g, vk, obj)
+
 	})
 
 	// Run Bots Long Poll
 	log.Println("Start Long Poll")
 	if err := lp.Run(); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
+
 }
 func SendMessege(vk *api.VK, text string, id int) {
 	b := params.NewMessagesSendBuilder()
@@ -325,13 +328,20 @@ func SendMessege(vk *api.VK, text string, id int) {
 		log.Fatal(err)
 	}
 }
+func GiveName(vk *api.VK, id int) string {
+	users, err := vk.UsersGet(api.Params{"user_ids": id})
+	if err != nil {
+		return "Иван Иваныч"
+	}
+	return users[0].FirstName + " " + users[0].LastName
+}
 func Games(g *Game, vk *api.VK, obj events.MessageNewObject) *Game {
-	switch g.Game_Stage {
+	switch g.GameStage {
 	case 0:
 		if obj.Message.PeerID == ChatID {
 			{
 				if obj.Message.Text == "!невесты" {
-					g.Game_Stage = 1
+					g.GameStage = 1
 					SendMessege(vk, "Набор на игру начат!", ChatID)
 				}
 			}
@@ -353,7 +363,7 @@ func Games(g *Game, vk *api.VK, obj events.MessageNewObject) *Game {
 					}
 					fmt.Println(g.Groom)
 					SendMessege(vk, "Поздравляем, вы жених! Что бы задать вопрос используйте \n!вопрос <вопрос>", g.Groom)
-					g.Game_Stage = 2
+					g.GameStage = 2
 				}
 			default:
 				switch obj.Message.Text {
@@ -374,7 +384,7 @@ func Games(g *Game, vk *api.VK, obj events.MessageNewObject) *Game {
 							SendMessege(vk, "Вы и так не играете!", obj.Message.FromID)
 							return g
 						}
-						SendMessege(vk, "Кол-во игроков:"+strconv.Itoa(g.ConstPlayer2()), ChatID)
+						SendMessege(vk, "Кол-во игроков: "+strconv.Itoa(g.ConstPlayer2()), ChatID)
 						SendMessege(vk, "Вы успешно вышли с набора!", obj.Message.FromID)
 					}
 				case "!+жених":
@@ -409,7 +419,19 @@ func Games(g *Game, vk *api.VK, obj events.MessageNewObject) *Game {
 				}
 			case ChatID:
 				{
-					return g
+					switch obj.Message.Text {
+					case "!инфа":
+						{
+							SendMessege(vk, "Кол-во невест: "+strconv.Itoa(g.ConstPlayer()), ChatID)
+						}
+					case "!сброс":
+						if obj.Message.FromID == ModerId {
+							SendMessege(vk, "Ваша игра успешно сброшена!", ChatID)
+							g = NewGame()
+						} else {
+							SendMessege(vk, "У вас недостаточно прав!", ChatID)
+						}
+					}
 				}
 			default:
 				if g.HePlay(obj.Message.FromID) {
@@ -425,8 +447,27 @@ func Games(g *Game, vk *api.VK, obj events.MessageNewObject) *Game {
 			switch obj.Message.PeerID {
 			case ChatID:
 				{
-					if obj.Message.FromID == ModerId && obj.Message.Text == "!скип" {
-						g.EndQuest(vk, false)
+					switch obj.Message.Text {
+					case "!инфа":
+						{
+							SendMessege(vk, "Кол-во невест: "+strconv.Itoa(g.ConstPlayer()), ChatID)
+						}
+					case "!сброс":
+						if obj.Message.FromID == ModerId {
+							SendMessege(vk, "Ваша игра успешно сброшена!", ChatID)
+							g = NewGame()
+						} else {
+							SendMessege(vk, "У вас недостаточно прав!", ChatID)
+						}
+					case "!скип":
+						{
+							if obj.Message.FromID == ModerId {
+								SendMessege(vk, "Ожидание невест сброшено!", ChatID)
+								g.EndQuest(vk, false)
+							} else {
+								SendMessege(vk, "У вас недостаточно прав!", ChatID)
+							}
+						}
 					}
 				}
 			case g.Groom:
@@ -469,13 +510,24 @@ func Games(g *Game, vk *api.VK, obj events.MessageNewObject) *Game {
 		switch obj.Message.PeerID {
 		case ChatID:
 			{
-				return g
-
+				switch obj.Message.Text {
+				case "!инфа":
+					{
+						SendMessege(vk, "Кол-во невест: "+strconv.Itoa(g.ConstPlayer()), ChatID)
+					}
+				case "!сброс":
+					if obj.Message.FromID == ModerId {
+						SendMessege(vk, "Ваша игра успешно сброшена!", ChatID)
+						g = NewGame()
+					} else {
+						SendMessege(vk, "У вас недостаточно прав!", ChatID)
+					}
+				}
 			}
 		case g.Groom:
 			{
 				mes := strings.Split(obj.Message.Text, " ")
-				if mes[0] == "!кик" && len(mes[1:]) > 1 {
+				if mes[0] == "!кик" && len(mes[1:]) >= 1 {
 					i := g.KikOne(vk, mes[1:])
 					if i == false {
 						SendMessege(vk, "Неправильный номер", g.Groom)
@@ -486,8 +538,15 @@ func Games(g *Game, vk *api.VK, obj events.MessageNewObject) *Game {
 						g = g.ENDGAME(vk)
 					}
 
+				} else if mes[0] == "!пропуск" {
+					i := g.Propus(vk, mes[1:])
+					if i == false {
+						SendMessege(vk, "Вы уже использовали возможность пропуска!", g.Groom)
+					} else {
+						g.NewRound(vk)
+					}
 				} else {
-					SendMessege(vk, "Для кика используйте !кик <номер> <коммент>", g.Groom)
+					SendMessege(vk, "Для кика используйте !кик <номер> <коммент>\n Что бы пропусть используйте !пропуск <коммент>", g.Groom)
 				}
 			}
 		default:
